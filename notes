@@ -1,0 +1,3 @@
+https://api.nozbe.com:3000/oauth/secret/create?email=ben.mens@gmail.com&password=33333&redirect_uri=http://localhost
+
+curl -i https://api.nozbe.com:3000/oauth/secret/create -XPOST -d "email=ben.mens@gmail.com&password=33333&redirect_uri=http://localhost"
