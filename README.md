@@ -3,8 +3,8 @@ IQTell to Nozbe migration tool
 
 #Build
 
-  npm install
+    npm install
   
 #Run
 
-  node index.js
+    node index.js
