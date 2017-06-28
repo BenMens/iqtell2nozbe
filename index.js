@@ -1,137 +1,166 @@
-var http = require('http'),
+var http = require('express'),
     fs = require('fs'),
     requestPromise = require('request-promise'),
     formBody = require('body/form'),
     jsonBody = require('body/json'),
-    Router = require('router'),
     formurlencoded = require('form-urlencoded'),
     queryString = require('query-string'),
     url = require('url'),
     finalhandler = require('finalhandler')
-    csv = require("csv");
+    csv = require("csv"),
+    express = require('express'),
+    app = express(),
+    session = require('express-session'),
+    FileStore = require('session-file-store')(session),
+    multer  = require('multer'),
+    upload = multer({ });
 
 
-var router = Router();
 
-var accessToken;
 var projects = {}
 var tasks = {}
 var contexts = {}
 
-router
+app.use(session({
+  store: new FileStore({}),
+  secret: 'nwjcrhwehrithew',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false }
+}));
+
+var iqtellUpload = upload.fields([{ name: 'actions', maxCount: 1 }, { name: 'projects', maxCount: 1 }])
+
+app
+  //############################################################################
+  //# / (get)
+  //############################################################################
   .get("/",function (req,res,next) {
     res.writeHead(302, {
-      'Location': '/login'
+      'Location': 'app/login'
     })
     res.end();
   })
-  .get("/login",function (req,res,next) {
-    res.writeHead(200, {'Content-Type': 'text/html'});
-    res.end(fs.readFileSync("login.html"));
-  })
-  .post("/login",function (req,res,next) {
+  //############################################################################
+  //# /login (post)
+  //############################################################################
+  .post("/login",iqtellUpload,function (req,res,next) {
 
-      formBody(req, res,function(error,data) {
 
-        var email = data.email;
-        var password = data.password;
+    var email = req.body.email;
+    var password = req.body.password;
 
-        requestPromise.post("https://api.nozbe.com:3000/oauth/secret/create",{
+    try {
+      readActions(req.files['actions'][0].buffer);
+    }
+    catch(e) {
+
+    }
+
+    var sess = req.session
+    sess.views = {
+      accessToken : undefined
+    }
+
+    requestPromise.post("https://api.nozbe.com:3000/oauth/secret/create",{
+        body: formurlencoded({
+          email: email,
+          password: password,
+          redirect_uri: "http://localhost:8080/app_registered"
+        })
+      })
+      .catch(function(error) {
+        if (error.statusCode == 404) {
+            var error = JSON.parse(error.error);
+
+            if (error.error == "Client already exists") {
+              // Ingore this error
+              return
+            }
+        }
+
+        return Promise.reject(error);
+      })
+      .then(function() {
+        // Get the client secret
+        var secretDataResourceUrl = "https://api.nozbe.com:3000/oauth/secret/data?" + queryString.stringify({
+            email: email,
+            password: password
+          })
+
+        return requestPromise.get(secretDataResourceUrl)
+          .then(function(data) {
+            return data;
+          })
+      })
+      .then(function(data) {
+        data = JSON.parse(data);
+
+        var secretDataResourceUrl = "https://api.nozbe.com:3000/oauth/secret/data?" + queryString.stringify({
+          client_id: data.client_id,
+          client_secret: data.client_secret
+          })
+
+        console.log(secretDataResourceUrl);
+
+        return requestPromise.put(secretDataResourceUrl,{
             body: formurlencoded({
-              email: email,
-              password: password,
               redirect_uri: "http://localhost:8080/app_registered"
             })
           })
-          .catch(function(error) {
-            if (error.statusCode == 404) {
-                var error = JSON.parse(error.error);
-
-                if (error.error == "Client already exists") {
-                  // Ingore this error
-                  return
-                }
-            }
-
-            return Promise.reject(error);
-          })
           .then(function() {
-            // Get the client secret
-            var secretDataResourceUrl = "https://api.nozbe.com:3000/oauth/secret/data?" + queryString.stringify({
-                email: email,
-                password: password
-              })
-
-
-            return requestPromise.get(secretDataResourceUrl)
-              .then(function(data) {
-                return data;
-              })
+            return data;
           })
-          .then(function(data) {
-            data = JSON.parse(data);
-
-            var secretDataResourceUrl = "https://api.nozbe.com:3000/oauth/secret/data?" + queryString.stringify({
-              client_id: data.client_id,
-              client_secret: data.client_secret
-              })
-
-            console.log(secretDataResourceUrl);
-
-            return requestPromise.put(secretDataResourceUrl,{
-                body: formurlencoded({
-                  redirect_uri: "http://localhost:8080/app_registered"
-                })
-              })
-              .then(function() {
-                return data;
-              })
-          })
-          .then(function(data) {
-            res.writeHead(302, {
-              'Location': "https://api.nozbe.com:3000/login?" + queryString.stringify({
-                  client_id: data.client_id
-                })
+      })
+      .then(function(data) {
+        res.writeHead(302, {
+          'Location': "https://api.nozbe.com:3000/login?" + queryString.stringify({
+              client_id: data.client_id
             })
-            res.end();
-          })
-          .catch(function(error) {
-            console.log("error:" + JSON.stringify(error.error));
-          })
-
+        })
+        res.end();
+      })
+      .catch(function(error) {
+        res.contentType("text/html");
+        res.write('<html><head><title>error</title></head><body>');
+        res.write(JSON.stringify(error.error));
+        res.write('<br/><form action="/"><input type="submit" value="Try again" /></form></body></html>');
+        res.end();
       })
 
   })
-  .get("/favicon.ico",function (req,res,next) {
-    res.writeHead(200, {'Content-Type': 'image/x-icon'});
-    res.end(fs.readFileSync("favicon.ico"));
-  })
+  //############################################################################
+  //# /app_registered (get)
+  //############################################################################
   .get("/app_registered",function (req,res,next) {
     var location = url.parse(req.url);
 
     var parsed = queryString.parse(location.search);
 
-    accessToken = parsed.access_token;
+    var sess = req.session
+    sess.views.accessToken = parsed.access_token;
 
-    res.write("app_registered: " + JSON.stringify(accessToken));
+
+    res.write("app_registered: " + JSON.stringify(sess.views.accessToken));
     res.end();
 
-    readNozbeProjects()
-      .then(readNozbeTasks);
 
-  });
+    readNozbeProjects(sess.views.accessToken)
+      .then(function() {
+          readNozbeTasks(sess.views.accessToken);
+      });
 
-
-
-
-var server = http.createServer(function(req, res) {
-  router(req, res,finalhandler(req, res));
-})
-
-server.listen(8080,'localhost')
+  })
+  //############################################################################
+  //# /web/*
+  //############################################################################
+  app.use('/app',express.static('app',{extensions:['html']}));
 
 
-function readNozbeProjects() {
+app.listen(8080)
+
+
+function readNozbeProjects(accessToken) {
   return requestPromise.get("https://api.nozbe.com:3000/list?" + queryString.stringify({
       type: "project",
       access_token : accessToken
@@ -153,7 +182,7 @@ function readNozbeProjects() {
 
 }
 
-function readNozbeTasks() {
+function readNozbeTasks(accessToken) {
   return requestPromise.get("https://api.nozbe.com:3000/list?" + queryString.stringify({
       type: "task",
       access_token : accessToken

@@ -1,2 +1,4 @@
 node_modules/
 testdata/
+sessions/
+.DS_Store

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Import</title>
+
+  <!-- Latest compiled and minified CSS -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+  <!-- Optional theme -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+  <!-- Latest compiled and minified JavaScript -->
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+</head>
+
+<body class="container">
+  <form action="/login" method="post" enctype="multipart/form-data">
+
+    <h1>IQTell to Nozbe migration tool</h1>
+
+    Programmers note: <br/>
+    <em>I loved using IQTell but now it will shutdown, it is time to move on. For me Nozbe is very good alternative.
+    It has a great user interface and great apps. I created this tool for fellow IQTell users who want to migrate to Nozbe.<br/><br/>
+    Ben Mens
+  </em>
+
+    <br/>
+    <br/>
+    <br/>
+    Using this tool you can import your IQTell data into Nozbe. Just export your IQTell activities and IQTell projects to
+    your disk and then upload the files using the form below.
+
+    </img><h1><img src="iqtell.png" style="width:50px"></img> IQTell export</h1>
+
+    <div class="form-group">
+      <label for="actions">Actions export</label>
+      <input type="file" class="form-control" id="actions" name="actions">
+    </div>
+    <div class="form-group">
+      <label for="projects">Projects export</label>
+      <input type="file" class="form-control" id="projects" name="projects">
+    </div>
+
+    <h1><img src="nozbe.jpeg" style="width:50px"></img> Nozbe login</h1>
+    <div class="form-group">
+      <label for="email">Actions export</label>
+      <input type="email" class="form-control" id="email" name="email">
+    </div>
+    <div class="form-group">
+      <label for="password">Projects export</label>
+      <input type="password" class="form-control" id="password" name="password">
+    </div>
+
+    <input class="btn btn-default" type="submit" value="Import in Nozbe">
+
+  </form>
+</body>
+
+</html>
