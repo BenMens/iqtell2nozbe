@@ -1,10 +1,10 @@
 # iqtell2nozbe
 IQTell to Nozbe migration tool
 
-#Build
+# Build
 
     npm install
   
-#Run
+# Run
 
     node index.js
