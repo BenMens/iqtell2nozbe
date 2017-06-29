@@ -13,7 +13,9 @@ var http = require('express'),
     session = require('express-session'),
     FileStore = require('session-file-store')(session),
     multer  = require('multer'),
-    upload = multer({ });
+    upload = multer({ }),
+    md = require('html-md'),
+    marked = require('marked');
 
 
 
@@ -50,84 +52,79 @@ app
     var email = req.body.email;
     var password = req.body.password;
 
-    try {
-      readActions(req.files['actions'][0].buffer);
-    }
-    catch(e) {
-
-    }
-
-    var sess = req.session
-    sess.views = {
+    req.session.views = {
       accessToken : undefined
     }
 
-    requestPromise.post("https://api.nozbe.com:3000/oauth/secret/create",{
-        body: formurlencoded({
-          email: email,
-          password: password,
-          redirect_uri: "http://localhost:8080/app_registered"
-        })
-      })
-      .catch(function(error) {
-        if (error.statusCode == 404) {
-            var error = JSON.parse(error.error);
-
-            if (error.error == "Client already exists") {
-              // Ingore this error
-              return
-            }
-        }
-
-        return Promise.reject(error);
+    readActions(req.files['actions'][0].buffer)
+      .then(function(actions) {
+        req.session.views.iqtellTasks = actions;
       })
       .then(function() {
-        // Get the client secret
-        var secretDataResourceUrl = "https://api.nozbe.com:3000/oauth/secret/data?" + queryString.stringify({
-            email: email,
-            password: password
-          })
-
-        return requestPromise.get(secretDataResourceUrl)
-          .then(function(data) {
-            return data;
-          })
-      })
-      .then(function(data) {
-        data = JSON.parse(data);
-
-        var secretDataResourceUrl = "https://api.nozbe.com:3000/oauth/secret/data?" + queryString.stringify({
-          client_id: data.client_id,
-          client_secret: data.client_secret
-          })
-
-        console.log(secretDataResourceUrl);
-
-        return requestPromise.put(secretDataResourceUrl,{
+        return requestPromise.post("https://api.nozbe.com:3000/oauth/secret/create",{
             body: formurlencoded({
+              email: email,
+              password: password,
               redirect_uri: "http://localhost:8080/app_registered"
             })
           })
-          .then(function() {
-            return data;
-          })
-      })
-      .then(function(data) {
-        res.writeHead(302, {
-          'Location': "https://api.nozbe.com:3000/login?" + queryString.stringify({
-              client_id: data.client_id
-            })
-        })
-        res.end();
-      })
-      .catch(function(error) {
-        res.contentType("text/html");
-        res.write('<html><head><title>error</title></head><body>');
-        res.write(JSON.stringify(error.error));
-        res.write('<br/><form action="/"><input type="submit" value="Try again" /></form></body></html>');
-        res.end();
-      })
+          .catch(function(error) {
+            if (error.statusCode == 404) {
+                var error = JSON.parse(error.error);
 
+                if (error.error == "Client already exists") {
+                  // Ingore this error
+                  return
+                }
+            }
+
+            return Promise.reject(error);
+          })
+          .then(function() {
+            // Get the client secret
+            var secretDataResourceUrl = "https://api.nozbe.com:3000/oauth/secret/data?" + queryString.stringify({
+                email: email,
+                password: password
+              })
+
+            return requestPromise.get(secretDataResourceUrl)
+              .then(function(data) {
+                return data;
+              })
+          })
+          .then(function(data) {
+            data = JSON.parse(data);
+
+            var secretDataResourceUrl = "https://api.nozbe.com:3000/oauth/secret/data?" + queryString.stringify({
+              client_id: data.client_id,
+              client_secret: data.client_secret
+              })
+
+            return requestPromise.put(secretDataResourceUrl,{
+                body: formurlencoded({
+                  redirect_uri: "http://localhost:8080/app_registered"
+                })
+              })
+              .then(function() {
+                return data;
+              })
+          })
+          .then(function(data) {
+            res.writeHead(302, {
+              'Location': "https://api.nozbe.com:3000/login?" + queryString.stringify({
+                  client_id: data.client_id
+                })
+            })
+            res.end();
+          })
+          .catch(function(error) {
+            res.contentType("text/html");
+            res.write('<html><head><title>error</title></head><body>');
+            res.write(JSON.stringify(error.error));
+            res.write('<br/><form action="/"><input type="submit" value="Try again" /></form></body></html>');
+            res.end();
+          })
+      });
   })
   //############################################################################
   //# /app_registered (get)
@@ -140,21 +137,26 @@ app
     var sess = req.session
     sess.views.accessToken = parsed.access_token;
 
-
-    res.write("app_registered: " + JSON.stringify(sess.views.accessToken));
-    res.end();
-
-
-    readNozbeProjects(sess.views.accessToken)
-      .then(function() {
-          readNozbeTasks(sess.views.accessToken);
-      });
-
+    // readNozbeProjects(sess.views.accessToken)
+    //   .then(function() {
+    //       return readNozbeTasks(sess.views.accessToken);
+    //   })
+    //   .then(function() {
+        res.writeHead(302, {
+          'Location': 'app/validate'
+        })
+       res.end();
+      // });
   })
   //############################################################################
   //# /web/*
   //############################################################################
-  app.use('/app',express.static('app',{extensions:['html']}));
+  .use('/app',express.static('app',{extensions:['html']}))
+  .set('view engine', 'pug')
+  .set('views', './views')
+  .get('/app/validate', function (req, res) {
+    res.render('validate', req.session.views);
+  })
 
 
 app.listen(8080)
@@ -177,7 +179,7 @@ function readNozbeProjects(accessToken) {
         }
       });
 
-      console.log(projects);
+      // console.log(projects);
     });
 
 }
@@ -200,7 +202,7 @@ function readNozbeTasks(accessToken) {
         }
       });
 
-      console.log(tasks);
+      // console.log(tasks);
 
     });
 
@@ -250,46 +252,52 @@ function parseDate(dateString) {
 }
 
 function readActions(data) {
-  csv.parse(data,{columns:true},function(error,data){
-    data.forEach(value => {
-  //    if (value['Short Description']=="Patent search") {
-        console.log("######################################");
 
-        var links = {};
+  return new Promise(function (resolve, reject) {
+    var result = [];
 
-        value['Links'].split(",")
-        .map(link  => {
-          return link.split(":").map(s => s.trim());
-        })
-        .forEach(l => {
-            var key = l[0];
-            var value = l[1];
-            if (key!="") {
-              if (!links[key]) {
-                links[key] = [];
+    csv.parse(data,{columns:true},function(error,data) {
+      data.forEach(value => {
+
+          var links = {};
+
+          value['Links'].split(",")
+          .map(link  => {
+            return link.split(":").map(s => s.trim());
+          })
+          .forEach(l => {
+              var key = l[0];
+              var value = l[1];
+              if (key!="") {
+                if (!links[key]) {
+                  links[key] = [];
+                }
+                links[key].push(value);
               }
-              links[key].push(value);
-            }
-        });
+          });
 
-        value['Links'] = links;
+          value['Links'] = links;
 
-        value['Due Date']     = parseDate(value['Due Date']);
-        value['Date Created'] = parseDate(value['Date Created']);
-        value['Date Updated'] = parseDate(value['Date Updated']);
+          value['Due Date']     = parseDate(value['Due Date']);
+          value['Date Created'] = parseDate(value['Date Created']);
+          value['Date Updated'] = parseDate(value['Date Updated']);
+          value['Notes'] = md(value['Notes'],{inline:true});
+          value['NotesHTML'] = marked(value['Notes']);
 
+          result.push(value);
+          // console.log(value['Links']);
+          // console.log(value['Due Date']);
+          // console.log(value['Date Created']);
+          // console.log(value['Date Updated']);
+          // console.log(value['Status']);
 
-        console.log(value['Short Description']);
-        console.log(value['Links']);
-        console.log(value['Due Date']);
-        console.log(value['Date Created']);
-        console.log(value['Date Updated']);
-        console.log(value['Status']);
-  //    }
-
+      })
     })
+    .on('end',function() {
+      resolve(result);
+      })
+    .on('error',function(error) {
+      reject(error);
+    });
   })
 }
-
-
-//readActions(fs.readFileSync("Actions - Folder Content.csv"));
