@@ -34,19 +34,26 @@ html
 
 
   body(class="container")
-    - for (var i=0;i<iqtellTasks.length;i++)
-        div(class="row")
-          div(class="col-sm-6")
-            div(class="panel panel-default")
-              div(class="panel-heading")
-                =iqtellTasks[i]["Short Description"]
-              div(class="panel-body")
-                p Due Date: #{iqtellTasks[i]["Due Date"]}
-                p Context: #{iqtellTasks[i]["Context"]}
-                p Status: #{iqtellTasks[i]["Status"]}
-                div(class="panel panel-default")
-                  div(class="panel-heading")
-                    | Notes
-                  div(class="panel-body")
-                    != iqtellTasks[i]["NotesHTML"]
-          div(class="col-sm-6")
+    - for (name in iqtellProjects)
+      - var tasks = iqtellProjects[name].tasks
+      div(class="row")
+        div(class="col-sm-6")
+          = name
+          - for (var i=0;i<tasks.length;i++)
+              div(class="row")
+                div(class="col-sm-6")
+                  div(class="panel panel-default")
+                    div(class="panel-heading")
+                      = tasks[i]["Short Description"]
+                    div(class="panel-body")
+                      p Due Date: #{tasks[i]["Due Date"]}
+                      p Context: #{tasks[i]["Context"]}
+                      p Status: #{tasks[i]["Status"]}
+                      p project: #{tasks[i]["project"]}
+                      p Links: #{JSON.stringify(tasks[i]["Links"])}
+                      div(class="panel panel-default")
+                        div(class="panel-heading")
+                          | Notes
+                        div(class="panel-body")
+                          //!= tasks[i]["NotesHTML"]
+                div(class="col-sm-6")

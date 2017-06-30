@@ -56,9 +56,19 @@ app
       accessToken : undefined
     }
 
-    readActions(req.files['actions'][0].buffer)
-      .then(function(actions) {
-        req.session.views.iqtellTasks = actions;
+    Promise.all([readActions(req.files['actions'][0].buffer),readProjects(req.files['projects'][0].buffer)])
+      .then(function(res) {
+        req.session.views.iqtellTasks = res[0];
+        req.session.views.iqtellProjects = res[1];
+
+        req.session.views.iqtellTasks.forEach(function(task) {
+          try {
+            req.session.views.iqtellProjects[task.project].tasks.push(task);
+          }
+          catch (e) {
+            req.session.views.iqtellProjects["_NoProject_"].tasks.push(task);
+          }
+        })
       })
       .then(function() {
         return requestPromise.post("https://api.nozbe.com:3000/oauth/secret/create",{
@@ -278,6 +288,14 @@ function readActions(data) {
 
           value['Links'] = links;
 
+
+          try {
+            value.project = links['Project'][0];
+          }
+          catch(e) {
+            value.project = '_NoProject_';
+          }
+
           value['Due Date']     = parseDate(value['Due Date']);
           value['Date Created'] = parseDate(value['Date Created']);
           value['Date Updated'] = parseDate(value['Date Updated']);
@@ -285,12 +303,6 @@ function readActions(data) {
           value['NotesHTML'] = marked(value['Notes']);
 
           result.push(value);
-          // console.log(value['Links']);
-          // console.log(value['Due Date']);
-          // console.log(value['Date Created']);
-          // console.log(value['Date Updated']);
-          // console.log(value['Status']);
-
       })
     })
     .on('end',function() {
@@ -300,4 +312,43 @@ function readActions(data) {
       reject(error);
     });
   })
+}
+
+function readProjects(data) {
+
+  return new Promise(function (resolve, reject) {
+    var result = {
+      "_NoProject_" : {
+        tasks:[]
+      }
+    };
+
+    csv.parse(data,{columns:true,max_limit_on_data_read:256000},function(error,data) {
+      if (error) {
+        console.log(error);
+        reject(error);
+      }
+      else {
+        data.forEach(value => {
+
+            // value['Due Date']     = parseDate(value['Due Date']);
+            // value['Date Created'] = parseDate(value['Date Created']);
+            // value['Date Updated'] = parseDate(value['Date Updated']);
+            // value['Notes'] = md(value['Notes'],{inline:true});
+            // value['NotesHTML'] = marked(value['Notes']);
+
+            value['Notes'] = md(value['Notes'],{inline:true});
+            value['Brainstorm'] = md(value['Brainstorm'],{inline:true});
+            value.tasks = []
+            result[value['Short Description']] = value;
+        })
+      }
+    })
+    .on('end',function() {
+      resolve(result);
+      })
+    .on('error',function(error) {
+      reject(error);
+    });
+  });
 }
