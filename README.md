@@ -8,3 +8,4 @@ IQTell to Nozbe migration tool
 # Run
 
     node index.js
+    http://localhost:8080/
