@@ -4,56 +4,64 @@ html
     meta(charset="utf-8")
     meta(
       http-equiv="X-UA-Compatible"
-      content="IE=edge"
-    )
+      content="IE=edge")
+
     meta(
       name="viewport"
-      content="width=device-width, initial-scale=1"
-    )
+      content="width=device-width, initial-scale=1")
 
     link(
       rel="stylesheet"
       href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
       integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
-      crossorigin="anonymous"
-    )
+      crossorigin="anonymous")
 
     link(
       rel="stylesheet"
       href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css"
       integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp"
-      crossorigin="anonymous"
-    )
+      crossorigin="anonymous")
+
+    script(
+      src="https://code.jquery.com/jquery-3.2.1.min.js"
+      integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+      crossorigin="anonymous")
+
 
     script(
       src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
       integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
-      crossorigin="anonymous"
-    )
+      crossorigin="anonymous")
 
 
 
   body(class="container")
-    - for (name in iqtellProjects)
-      - var tasks = iqtellProjects[name].tasks
+
+    - for (var j=0;j<projects.length;j++)
+      - var project = projects[j]
       div(class="row")
-        div(class="col-sm-6")
-          = name
-          - for (var i=0;i<tasks.length;i++)
-              div(class="row")
-                div(class="col-sm-6")
-                  div(class="panel panel-default")
-                    div(class="panel-heading")
-                      = tasks[i]["Short Description"]
-                    div(class="panel-body")
-                      p Due Date: #{tasks[i]["Due Date"]}
-                      p Context: #{tasks[i]["Context"]}
-                      p Status: #{tasks[i]["Status"]}
-                      p project: #{tasks[i]["project"]}
-                      p Links: #{JSON.stringify(tasks[i]["Links"])}
-                      div(class="panel panel-default")
+        div(class="col-sm-12")
+        div(class="panel " + (project.source==1 ? "panel-success" : "panel-primary"))
+          div(class="panel-heading")
+            | Project: #{project.name}
+          div(class="panel-body")
+            - for (var key in project.fields)
+              - var field = project.fields[key]
+              p(class=(field.source==1 ? "text-success" : "text-primary")) #{key} : #{field.value}
+            - for (var i=0;i<project.tasks.length;i++)
+                - var task = project.tasks[i]
+                div(class="row")
+                  div(class="col-sm-12")
+                    div(class="panel " + (task.source==1 ? "panel-success" : "panel-primary"))
+                      div(class="panel-heading")
+                        | Activity: #{task.name}
+                      div(class="panel-body")
+                      - for (var key in task.fields)
+                        - var field = task.fields[key]
+                        p(class=(field.source==1 ? "text-success" : "text-primary")) #{key} : #{JSON.stringify(field.value)}
+                      - for (var k=0;k<task.comments.length;k++)
+                        - var comment = task.comments[k]
                         div(class="panel-heading")
-                          | Notes
+                          | Note:
                         div(class="panel-body")
-                          //!= tasks[i]["NotesHTML"]
-                div(class="col-sm-6")
+                          != comment.html

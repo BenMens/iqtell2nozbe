@@ -1,4 +1,5 @@
 node_modules/
 testdata/
+uploads/
 sessions/
 .DS_Store

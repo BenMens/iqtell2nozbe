@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Login</title>
+  <title>Upload</title>
 
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
 
@@ -21,11 +21,11 @@
     src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
     integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
     crossorigin="anonymous"></script>
-    
+
 </head>
 
 <body class="container">
-  <form action="/login" method="post" enctype="application/x-www-form-urlencoded">
+  <form action="/upload" method="post" enctype="multipart/form-data">
 
     <h1>IQTell to Nozbe migration tool</h1>
 
@@ -40,17 +40,18 @@
     Using this tool you can import your IQTell data into Nozbe. Just export your IQTell activities and IQTell projects to
     your disk and then upload the files using the form below.
 
-    <h1><img src="nozbe.jpeg" style="width:50px"></img> Nozbe login</h1>
+  </img><h1><img src="iqtell.png" style="width:50px"></img> Upload IQTell exported data (.CSV)</h1>
+
     <div class="form-group">
-      <label for="email">Nozbe username</label>
-      <input type="email" class="form-control" id="email" name="email">
+      <label for="actions">Actions export</label>
+      <input type="file" class="form-control" id="actions" name="actions">
     </div>
     <div class="form-group">
-      <label for="password">Nozbe password</label>
-      <input type="password" class="form-control" id="password" name="password">
+      <label for="projects">Projects export</label>
+      <input type="file" class="form-control" id="projects" name="projects">
     </div>
 
-    <input class="btn btn-default" type="submit" value="Login">
+    <input class="btn btn-default" type="submit" value="Import in Nozbe">
 
   </form>
 </body>
