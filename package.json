@@ -12,7 +12,7 @@
     "Nozbe"
   ],
   "engines": {
-    "node": "6.10.0"
+    "node": "8.0.0"
   },
   "author": "Ben Mens",
   "license": "ISC",
