@@ -10,6 +10,9 @@
     "IQTELL",
     "Nozbe"
   ],
+  "engines": {
+    "node": "6.10.3"
+  }, 
   "author": "Ben Mens",
   "license": "ISC",
   "dependencies": {
