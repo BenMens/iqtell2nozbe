@@ -21,12 +21,18 @@ var http = require('express'),
 
 function toMarkdown(s) {
   var converter1 = {
-    filter: ["table","tr","td","tbody","span","div","col","colgroup"],
+    filter: ["tr","div"],
+    replacement: function(content,node) {
+      return content + "\n";
+    }
+  }
+  var converter2 = {
+    filter: ["table","td","tbody","span","col","colgroup"],
     replacement: function(content,node) {
       return content;
     }
   }
-  return _toMarkdown(s,{ converters:[converter1]});
+  return _toMarkdown(s,{ converters:[converter1,converter2]});
 }
 
 var importStatus = {}
