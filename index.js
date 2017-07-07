@@ -15,7 +15,9 @@ var http = require('express'),
     md = require('html-md'),
     marked = require('marked'),
     bodyParser = require('body-parser'),
-    dateFormat = require('dateformat');
+    dateFormat = require('dateformat'),
+    shortID = require('short-id-gen'),
+    jsdiff = require('diff');
 
 var importStatus = {}
 
@@ -24,80 +26,380 @@ var sessionStore = new FileStore({});
 var NOZBE = 1;
 var IQTELL = 2;
 
-function Project() {
-  this.name='';
-  this.nozbeId=undefined;
-  this.nozbeProject=undefined;
-  this.iqtellProject=undefined;
-  this.tasks=[];
-  this.fields = {}
-
-
-  this.setField = function(name,value,source) {
-    var field = this.fields[name] = (this.fields[name] || {})
-    field.value = value;
-    field.source = source;
+function compareNotes(n1,n2) {
+  if (!n1 || !n2) {
+    return false;
   }
 
+  var diff = jsdiff.diffWords(n1,n2);
+  var hasDiffs = false;
+  diff.forEach(function(d) {
+    if (d.added || d.removed) {
+      hasDiffs = true;
+    }
+  });
 
-  this.analyse = function() {
-    if (this.nozbeProject) {
-      this.source = NOZBE;
-      this.setField("name",this.nozbeProject.name,NOZBE);
-    }
-    else if (this.iqtellProject) {
-      this.source = IQTELL;
-      this.setField("name",this.iqtellProject["Short Description"],IQTELL);
-    }
-  }
+  return !hasDiffs;
 }
 
-function Task() {
-  this.name='';
-  this.nozbeId=undefined;
-  this.nozbeTask=undefined;
-  this.iqtellTask=undefined;
-  this.fields = {}
-  this.comments = []
+function Project(nozbeProject) {
+  this.tasks=[];
+  this.fields = {};
+  this.comments = [];
 
   this.setField = function(name,value,source) {
-    var field = this.fields[name] = (this.fields[name] || {})
-    field.value = value;
-    field.source = source;
+    if (!this.fields[name] || (this.fields[name].value != value)) {
+      var field = this.fields[name] = (this.fields[name] || {})
+      field.value = value;
+      field.source = source;
+    }
   }
 
-  this.setComments = function(comments,source) {
-    comments.forEach(comment => {
-      comment.source = source;
-      comment.html = marked(comment.body);
-      this.comments.push(comment)
+  this.mergeIqtellProject = function(iqtellProject) {
+    if (iqtellProject) {
+      this.setComment({type:"note",body:md(iqtellProject["Notes"])},IQTELL,"IQTell notes");
+      this.setComment({type:"note",body:md(iqtellProject["Brainstorming Notes"])},IQTELL,"IQTell brainstorming notes");
+    }
+  }
+
+  this.setComment = function(comment,source,signature) {
+    if (!comment.body) return
+
+    var foundComment = this.comments.find(function(c) {
+      if (c.data.id == comment.id) {
+        return true;
+      }
+      if (signature && c.data.name==signature) {
+        return true;
+      }
+    });
+    if (!foundComment) {
+
+      var newComment = {
+        data:comment,
+        source:source
+      };
+
+      if (!newComment.data.id) {
+        newComment.data.id = shortID.generate(16);
+        newComment.data.is_new=true;
+      }
+      if (signature) {
+        newComment.data.name = signature;
+      }
+      this.comments.push(newComment);
+    }
+    else if (signature) {
+      foundComment.source = source;
+      foundComment.data.name = signature;
+    }
+  }
+
+
+  if (nozbeProject) {
+    this.setField("id",nozbeProject.id,NOZBE);
+    this.setField("name",nozbeProject.name,NOZBE);
+  }
+
+}
+
+function Task(nozbeTask) {
+
+  this.fields = {
+    con_list: {
+      value:[],
+      source:NOZBE
+    }
+  };
+  this.comments = [];
+
+  this.setField = function(name,value,source) {
+    if (!this.fields[name] || (this.fields[name].value != value)) {
+      var field = this.fields[name] = (this.fields[name] || {})
+      field.value = value;
+      field.source = source;
+    }
+  }
+
+  this.setComment = function(comment,source,signature) {
+    if (!comment.body) return
+
+    var foundComment = this.comments.find(function(c) {
+      if (c.data.id == comment.id) {
+        return true;
+      }
+      if (signature && c.data.body.indexOf(signature)==0) {
+        return true;
+      }
+    });
+    if (!foundComment) {
+
+      var newComment = {
+        data:comment,
+        source:source
+      };
+
+      if (!newComment.data.id) {
+        newComment.data.id = shortID.generate(16);
+        newComment.data.is_new=true;
+      }
+      if (signature) {
+        newComment.data.body = signature + "\n\n" + newComment.data.body
+      }
+      this.comments.push(newComment);
+    }
+    else if (signature) {
+      foundComment.source = source;
+      foundComment.data.body = signature + "\n\n" + comment.body;
+    }
+  }
+
+  this.setIqtellContext = function(contextId) {
+    if (!this.fields.con_list.value.find(function(c) {return c==contextId})) {
+      this.fields.con_list.value.push(contextId);
+      this.fields.con_list.source = IQTELL;
+    }
+  }
+
+  this.mergeIqtellTask = function(iqtellTask) {
+    if (iqtellTask) {
+      this.setField("time",0,IQTELL);
+      this.setField("next",iqtellTask["Star"]!="No",IQTELL);
+      this.setField("completed",iqtellTask["Status"]!="Open",IQTELL);
+      this.setField("datetime",iqtellTask["Due Date"],IQTELL);
+      this.setField("recur",0,IQTELL);
+      this.setComment({body:md(iqtellTask["Notes"])},IQTELL,"IQTell notes:");
+    }
+  }
+
+  if (nozbeTask) {
+    this.setField("id",       nozbeTask.id        ,NOZBE);
+    this.setField("name",     nozbeTask.name      ,NOZBE);
+    this.setField("time",     nozbeTask.time      ,NOZBE);
+    this.setField("next",     nozbeTask.next      ,NOZBE);
+    this.setField("completed",nozbeTask.completed ,NOZBE);
+    this.setField("datetime", nozbeTask.datetime  ,NOZBE);
+    this.setField("recur",    nozbeTask.recur     ,NOZBE);
+    this.setField("con_list", nozbeTask.con_list  ,NOZBE);
+
+    nozbeTask.comments.forEach(comment => {
+      this.setComment(comment,NOZBE);
     })
   }
 
-  this.analyse = function() {
-    if (this.nozbeTask) {
-      this.source = NOZBE;
-      this.setField("name",this.nozbeTask.name,NOZBE);
-      this.setField("time",this.nozbeTask.time,NOZBE);
-      this.setField("next",this.nozbeTask.next,NOZBE);
-      this.setField("completed",this.nozbeTask.completed,NOZBE);
-      this.setField("datetime",this.nozbeTask.datetime,NOZBE);
-      this.setField("recur",this.nozbeTask.recur,NOZBE);
-      this.setField("con_list",this.nozbeTask.con_list,NOZBE);
-      this.setComments(this.nozbeTask.comments,NOZBE);
-    }
-    else if (this.iqtellTask) {
-      this.source = IQTELL;
-      this.setField("name",this.iqtellTask["Short Description"],IQTELL);
-      this.setField("time",0,IQTELL);
-      this.setField("next",this.iqtellTask["Star"]!="No",IQTELL);
-      this.setField("completed",this.iqtellTask["Status"]!="Open",IQTELL);
-      this.setField("datetime",this.iqtellTask["Due Date"],IQTELL);
-      this.setField("recur",0,IQTELL);
-      this.setField("con_list",[],IQTELL);
-      // this.setField("comments",[],IQTELL);
+}
+
+function Context() {
+  this.data={}
+}
+
+
+function GtdData() {
+  this.projects = [];
+  this.contexts = [];
+
+  this.processNozbeContext = function(nozbeContext) {
+    var c = new Context();
+    c.data = {
+        id:nozbeContext.id,
+        name:nozbeContext.name,
+        body:nozbeContext.body,
+        icon:nozbeContext.icon
+      }
+
+    this.contexts.push(c);
+  }
+
+  this.processNozbeProject = function(nozbeProject,nozbeTasks) {
+    if (nozbeProject.flag != "deleted") {
+      var p  = new Project(nozbeProject);
+      this.projects.push(p);
+
+      nozbeTasks.forEach(function(nozbeTask) {
+        if (nozbeTask.project_id == p.fields.id.value) {
+          var t = new Task(nozbeTask);
+          p.tasks.push(t);
+        }
+      })
     }
   }
+
+  this.processNozbeNote = function(nozbeNote) {
+    var p = this.projects.find(function(project) {
+      return project.fields.id.value == nozbeNote.project_id
+    })
+
+    if (p) {
+      p.setComment(nozbeNote,NOZBE);
+    }
+  }
+
+  this.processIqTellProject = function(iqtellProject) {
+    var iqtellProjectName = iqtellProject["Short Description"];
+
+    var p = this.projects.find(function(project) {
+      return project.fields.name.value.toUpperCase() == iqtellProjectName.toUpperCase()
+    })
+
+    if (!p) {
+      p = new Project();
+      p.setField("name",iqtellProjectName,IQTELL);
+      p.setField("id",shortID.generate(16),IQTELL);
+      p.setField("is_new",true,IQTELL);
+      this.projects.push(p);
+    }
+
+    p.mergeIqtellProject(iqtellProject);
+  }
+
+  this.processIqTellTask = function(iqtellTask) {
+    var iqtellProjectName = iqtellTask.project;
+
+    var p = this.projects.find(function(project) {
+      return project.fields.name.value.toUpperCase() == iqtellProjectName.toUpperCase()
+    })
+
+    if (!p) {
+      p = new Project();
+      this.projects.push(p);
+
+      p.setField("name",iqtellProjectName,IQTELL);
+      p.setField("id",shortID.generate(16),IQTELL);
+      p.setField("is_new",true,IQTELL);
+    }
+
+    var iqtellTaskName = iqtellTask["Short Description"];
+
+    var t=p.tasks.find(function(task) {
+      return task.fields.name.value.toUpperCase()==iqtellTaskName.toUpperCase();
+    });
+
+    if (!t) {
+      t = new Task();
+      t.setField("id",shortID.generate(16),IQTELL);
+      t.setField("name",iqtellTaskName,IQTELL);
+      t.setField("is_new",true,IQTELL);
+
+      p.tasks.push(t);
+    }
+
+    t.mergeIqtellTask(iqtellTask);
+
+    var contextName = iqtellTask["Context"];
+    if (contextName) {
+      t.setIqtellContext(this.contextByName(contextName));
+    }
+  }
+
+  this.contextByName = function(contextName) {
+    var c = this.contexts.find(function(c) {return c.data.name.toUpperCase() == contextName.toUpperCase()});
+
+    if (!c) {
+      c = new Context();
+      this.contexts.push(c);
+
+      c.data.name = contextName;
+      c.data.id = shortID.generate(16);
+      c.data.body = "";
+      c.data.icon = 48;
+      c.data.is_new = true;
+    }
+
+    return c.data.id;
+  }
+
+  this.getContextUpdates = function() {
+    var result = [];
+
+    this.contexts.forEach(function(c) {
+      if (c.data.is_new) {
+        result.push(c.data);
+      }
+    });
+
+    return result;
+  }
+
+  this.getProjectUpdates = function() {
+    var result = [];
+
+    this.projects.forEach(function(p) {
+      var pFields = {};
+      var update = false;
+
+      for (var name in p.fields) {
+
+        if (p.fields[name].source!=NOZBE) {
+          pFields[name] = p.fields[name].value;
+          update = true;
+        }
+      }
+
+      if (update) {
+        pFields.id = p.fields.id.value;
+        result.push(pFields);
+      }
+
+    });
+
+    return result;
+  }
+
+  this.getProjectCommentUpdates = function() {
+    var result = [];
+
+    this.projects.forEach(function(p) {
+
+      p.comments.forEach(function(c) {
+        if (c.source==IQTELL) {
+          c.data.project_id = p.fields.id.value;
+          result.push(c.data);
+        }
+      });
+
+    });
+
+    return result;
+  }
+
+
+  this.getTaskUpdates = function() {
+    var result = [];
+
+    this.projects.forEach(function(p) {
+
+      p.tasks.forEach(function(t) {
+        var tFields = {};
+        var comments = [];
+        var update = false;
+
+        for (var name in t.fields) {
+
+          if (t.fields[name].source!=NOZBE) {
+            tFields[name] = t.fields[name].value;
+            update = true;
+          }
+        }
+
+        t.comments.forEach(function(n) {
+          if (n.source==IQTELL) {
+            comments.push(n.data);
+          }
+        })
+
+        if (update || comments.length>0) {
+          tFields.id = t.fields.id.value;
+          tFields.project_id = p.fields.id.value;
+          tFields.comments = comments;
+          result.push(tFields);
+        }
+      });
+    });
+
+    return result;
+  }
+
+
 }
 
 
@@ -129,92 +431,38 @@ app
     var email = req.body.email;
     var password = req.body.password;
 
-    req.session.accessToken = undefined;
-
-    return requestPromise.post("https://api.nozbe.com:3000/oauth/secret/create",{
-        body: formurlencoded({
+    return requestPromise("https://webapp.nozbe.com/sync3/login/app_key-iqtell_import",{
+        method: "POST",
+        form: {
           email: email,
-          password: password,
-          redirect_uri: "http://localhost:8080/app_registered"
-        })
+          password: password
+        },
+        json: true
       })
-      .catch(function(error) {
-        if (error.statusCode == 404) {
-            var error = JSON.parse(error.error);
+      .then(function(data) {
+        if (data.key) {
+          req.session.accessToken = data.key;
 
-            if (error.error == "Client already exists") {
-              // Ingore this error
-              return
-            }
+          res.writeHead(302, {
+            'Location': 'app/upload'
+          })
+          res.end();
         }
-
-        return Promise.reject(error);
+        else {
+          res.contentType("text/html");
+          res.write('<html><head><title>error</title></head><body>');
+          res.write("Wrong username or password");
+          res.write('<br/><form action="/"><input type="submit" value="Try again" /></form></body></html>');
+          res.end();
+        }
       })
-      .then(function() {
-        // Get the client secret
-        var secretDataResourceUrl = "https://api.nozbe.com:3000/oauth/secret/data?" + queryString.stringify({
-            email: email,
-            password: password
-          })
-
-        return requestPromise.get(secretDataResourceUrl)
-          .then(function(data) {
-            return data;
-          })
-      })
-      .then(function(data) {
-        data = JSON.parse(data);
-
-        var secretDataResourceUrl = "https://api.nozbe.com:3000/oauth/secret/data?" + queryString.stringify({
-          client_id: data.client_id,
-          client_secret: data.client_secret
-          })
-
-        return requestPromise.put(secretDataResourceUrl,{
-            body: formurlencoded({
-              redirect_uri: "http://localhost:8080/app_registered"
-            })
-          })
-          .then(function() {
-            return data;
-          })
-      })
-      .then(function(data) {
-        res.writeHead(302, {
-          'Location': "https://api.nozbe.com:3000/login?" + queryString.stringify({
-              client_id: data.client_id
-            })
-        })
-        res.end();
-      })
-      .catch(function(error) {
+      .catch(function() {
         res.contentType("text/html");
         res.write('<html><head><title>error</title></head><body>');
-        res.write(JSON.stringify(error.error));
+        res.write("Something did go wrong.");
         res.write('<br/><form action="/"><input type="submit" value="Try again" /></form></body></html>');
         res.end();
       })
-  })
-  //############################################################################
-  //# /app_registered (get)
-  //############################################################################
-  .get("/app_registered",function (req,res,next) {
-    var location = url.parse(req.url);
-
-    var parsed = queryString.parse(location.search);
-
-    var sess = req.session
-    sess.accessToken = parsed.access_token;
-
-    createTask(sess.accessToken,{
-      name:"test task",
-      con_list:["context1","context2"]
-    })
-
-    res.writeHead(302, {
-      'Location': 'app/upload'
-    })
-    res.end();
   })
   //############################################################################
   //# /upload (post)
@@ -236,101 +484,62 @@ app
         readProjects(req.files['projects'][0].path,importStatus[sessId].iqtellProgress.importProjects),
         readNozbeTasks(req.session.accessToken),
         readNozbeProjects(req.session.accessToken),
-        readNozbeContexts(req.session.accessToken)])
+        readNozbeContexts(req.session.accessToken),
+        readNozbeNotes(req.session.accessToken)])
       .then(function(res) {
 
-        importStatus[sessId].iqtellTasks = res[0];
-        importStatus[sessId].iqtellProjects = res[1];
-        importStatus[sessId].nozbeTasks = res[2];
-        importStatus[sessId].nozbeProjects = res[3];
+        var iqtellTasks    = res[0];
+        var iqtellProjects = res[1];
+        var nozbeTasks     = res[2];
+        var nozbeProjects  = res[3];
+        var nozbeContexts  = res[4];
+        var nozbeNotes     = res[5];
 
-        console.log(res[4])
+        var gtdData = new GtdData();
 
-        // console.log(res[2])
-        // console.log("##############################")
-        // console.log(res[3])
+        console.log("Step 1: Process nozbe contexts")
+        nozbeContexts.forEach(function(nozbeContext) {
+          gtdData.processNozbeContext(nozbeContext);
+        });
 
-        var projects = importStatus[sessId].projects = []
-        var contexts = res[4]
+        console.log("Step 2: Process nozbe projects")
+        nozbeProjects.forEach(function(nozbeProject) {
+          gtdData.processNozbeProject(nozbeProject,nozbeTasks);
+        });
 
-        console.log("Step 1")
-        importStatus[sessId].nozbeProjects.forEach(function(project) {
-          var p  = new Project();
-          projects.push(p);
+        console.log("Step 3: Process project notes")
+        nozbeNotes.forEach(function(nozbeNote) {
+          gtdData.processNozbeNote(nozbeNote);
+        });
 
-          p.name=project.name;
-          p.nozbeId=project.id;
-          p.nozbeProject=project;
+        console.log("Step 4: Process IQTell projects")
+        iqtellProjects.forEach(function(iqtellProject) {
+          gtdData.processIqTellProject(iqtellProject);
+        });
 
-          importStatus[sessId].nozbeTasks.forEach(function(task) {
-            if (task.project_id == p.nozbeId) {
-              var t = new Task();
-              p.tasks.push(t);
-
-              t.name=task.name;
-              t.nozbeId=task.id;
-              t.nozbeTask=task;
-            }
-          })
-        })
-
-
-        console.log("Step 2")
-        importStatus[sessId].iqtellProjects.forEach(function(project) {
-          var projectName = project["Short Description"];
-
-          var p = projects.find(function(elm) {
-            return elm.name == projectName
-          })
-
-          if (!p) {
-            p = new Project();
-            projects.push(p);
-            p.name = projectName;
-          }
-
-          p.iqtellProject = project;
-        })
-
-        console.log("Step 3")
-        importStatus[sessId].iqtellTasks.forEach(function(task) {
-          var projectName = task.project;
-
-          var p = projects.find(function(elm) {
-            return elm.name == projectName
-          })
-
-          if (!p) {
-            p = new Project();
-            projects.push(p);
-            p.name = projectName;
-          }
-
-          var taskName = task["Short Description"];
-
-          var t=p.tasks.find(function(elm) {
-            return elm.name==taskName
-          });
-
-          if (!t) {
-            t = new Task();
-            p.tasks.push(t);
-            t.name = taskName;
-          }
-
-          t.iqtellTask = task;
-        })
-
-        console.log("Step 4")
-        projects.forEach(function(project) {
-          project.analyse();
-          project.tasks.forEach(function(task) {
-            task.analyse();
-          })
-        })
+        console.log("Step 5: Process IQTell tasks")
+        iqtellTasks.forEach(function(iqtellTask) {
+          gtdData.processIqTellTask(iqtellTask);
+        });
 
 
-        importStatus[sessId].projects = projects;
+        updateNozbe(req.session.accessToken,{
+          context:gtdData.getContextUpdates()
+        });
+
+        updateNozbe(req.session.accessToken,{
+          project:gtdData.getProjectUpdates()
+        });
+
+        updateNozbe(req.session.accessToken,{
+          task:gtdData.getTaskUpdates()
+        });
+
+        updateNozbe(req.session.accessToken,{
+          note:gtdData.getProjectCommentUpdates()
+        });
+
+        importStatus[sessId].gtdData = gtdData;
         importStatus[sessId].iqtellProgress.done = true;
       })
       .catch(function(error) {
@@ -376,89 +585,87 @@ app
 app.listen(8080)
 
 
-function readNozbeProjects(accessToken) {
-  return requestPromise.get("https://api.nozbe.com:3000/list?" + queryString.stringify({
-      type: "project",
-      access_token : accessToken
-    }))
-    .then(function(data) {
-      return JSON.parse(data);
-    });
 
+function readNozbeProjects(accessToken) {
+  return requestPromise({
+      method: "GET",
+      url: "https://webapp.nozbe.com/sync3/getdata/app_key-iqtell_import/what-project",
+      headers: {
+        "X-Authorization" : accessToken
+      },
+      json: true
+    })
+    .then(function(data) {
+      return data.project;
+    });
 }
 
 function readNozbeTasks(accessToken) {
-  return requestPromise.get("https://api.nozbe.com:3000/list?" + queryString.stringify({
-      type: "task",
-      access_token : accessToken
-    }))
+  return requestPromise({
+      method: "GET",
+      url: "https://webapp.nozbe.com/sync3/getdata/app_key-iqtell_import/what-task",
+      headers: {
+        "X-Authorization" : accessToken
+      },
+      json: true
+    })
     .then(function(data) {
-      return JSON.parse(data);
+      return data.task;
     });
-
 }
 
 function readNozbeContexts(accessToken) {
-  return requestPromise.get("https://api.nozbe.com:3000/list?" + queryString.stringify({
-      type: "context",
-      access_token : accessToken
-    }))
+  return requestPromise({
+      method: "GET",
+      url: "https://webapp.nozbe.com/sync3/getdata/app_key-iqtell_import/what-context",
+      headers: {
+        "X-Authorization" : accessToken
+      },
+      json: true
+    })
     .then(function(data) {
-      return JSON.parse(data);
+      return data.context;
     });
-
 }
 
-function createProject(accessToken,data) {
+function readNozbeNotes(accessToken) {
+  return requestPromise({
+      method: "GET",
+      url: "https://webapp.nozbe.com/sync3/getdata/app_key-iqtell_import/what-note",
+      headers: {
+        "X-Authorization" : accessToken
+      },
+      json: true
+    })
+    .then(function(data) {
+      return data.note;
+    });
+}
+
+function updateNozbe(accessToken,data) {
+  console.log("updateNozbe .....");
+  console.log(data);
+
   return requestPromise({
     method: 'POST',
-    uri:"https://api.nozbe.com:3000/json/project?" + queryString.stringify({access_token : accessToken}),
+    uri:"https://webapp.nozbe.com/sync3/process/app_key-iqtell_import",
+    headers: {
+      "X-Authorization" : accessToken,
+      "Content-Type":     "application/json"
+    },
     body: data,
     json:true
   })
-  .then(function (parsedBody) {
-    var id;
-    for (key in parsedBody) {
-      if (parsedBody[key].is_new2) {
-        id=key;
-      }
-    }
-    console.log(id);
+  .then(function (data) {
+    // console.log(data)
+    return data
+  })
+  .catch(function(e) {
+    //console.log(e)
   })
 }
 
-function createTask(accessToken,data) {
-  return readNozbeContexts(accessToken)
-    .then(function(contexts){
-      console.log(contexts)
 
-      var c = []
-      contexts.forEach(function(con){c.push(con.id)})
-      data.con_list = c;
-
-      console.log(data)
-
-      return requestPromise({
-        method: 'POST',
-        uri:"https://api.nozbe.com:3000/json/task?" + queryString.stringify({access_token : accessToken}),
-        body: [data],
-        json:true
-      })
-      .then(function (parsedBody) {
-        console.log(parsedBody);
-        var id;
-        for (key in parsedBody) {
-          console.log(key);
-          if (parsedBody[key].is_new2) {
-            id=key;
-          }
-        }
-      })
-      .catch(function (err) {
-        console.log(err);
-      });
-    })
-}
 
 
 function parseDate(dateString) {
@@ -500,7 +707,7 @@ function parseDate(dateString) {
 
     var date = new Date(year,month-1,day,hour,minute);
 
-    return dateFormat(date,"yyyy-mm-dd H:MM:ss");
+    return dateFormat(date,"yyyy-mm-dd HH:MM:ss");
   }
 
   return undefined
@@ -554,12 +761,14 @@ function readActions(file,progress) {
           value.project = links['Project'][0];
         }
         catch(e) {
-          value.project = 'inbox';
+          value.project = 'Inbox';
         }
 
         value['Due Date']     = parseDate(value['Due Date']);
         value['Date Created'] = parseDate(value['Date Created']);
         value['Date Updated'] = parseDate(value['Date Updated']);
+        value['Short Description'] = value['Short Description'].replace(/[#!]/ig,"")
+
         //value['Notes'] = md(value['Notes'],{inline:true});
       }))
       .on('error',function(error) {
@@ -614,6 +823,8 @@ function readProjects(file,progress) {
 
         value['Notes'] = md(value['Notes'],{inline:true});
         value['Brainstorm'] = md(value['Brainstorm'],{inline:true});
+        value['Short Description'] = value['Short Description'].replace(/[#!]/ig,"")
+
         value.tasks = []
       }))
       .on('error',function(error) {

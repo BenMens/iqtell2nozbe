@@ -1,3 +1,46 @@
 https://api.nozbe.com:3000/oauth/secret/create?email=ben.mens@gmail.com&password=33333&redirect_uri=http://localhost
 
 curl -i https://api.nozbe.com:3000/oauth/secret/create -XPOST -d "email=ben.mens@gmail.com&password=33333&redirect_uri=http://localhost"
+
+
+
+"Short Description",
+"Area",
+"Context",
+"Due Date",
+"Notes",
+"Contacts",
+"Created By",
+"Date Created",
+"Date Updated",
+"Delegated To",
+"Dropbox Files",
+"Energy",
+"Google Drive",
+"Last Reviewed",
+"Links",
+"Originating Entry",
+"Parent Entries",
+"Priority","Star","Start Date","Status","Time Needed","Website References”
+
+For projects I get the following fields from IQTell:
+
+"Area",
+"Contacts",
+"Created By",
+"Date Created",
+"Date Updated",
+"Dropbox","Due Date","Google Drive","Last Reviewed","Links","Originating Entry","Parent Entries",
+"Priority","Short Description","Star","Start Date","Status","Website References","Brainstorming Notes","Notes"
+
+
+dd8E
+lZ2z
+EcUQ
+CM6A
+
+
+yvPn
+t1lV
+CYO4
+9FLk
