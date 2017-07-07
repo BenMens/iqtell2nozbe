@@ -12,12 +12,22 @@ var http = require('express'),
     FileStore = require('session-file-store')(session),
     multer  = require('multer'),
     upload = multer({ dest: 'uploads/' }),
-    md = require('html-md'),
     marked = require('marked'),
     bodyParser = require('body-parser'),
     dateFormat = require('dateformat'),
     shortID = require('short-id-gen'),
-    jsdiff = require('diff');
+    jsdiff = require('diff'),
+    _toMarkdown = require('to-markdown');
+
+function toMarkdown(s) {
+  var converter1 = {
+    filter: ["table","tr","td","tbody","span","div","col","colgroup"],
+    replacement: function(content,node) {
+      return content;
+    }
+  }
+  return _toMarkdown(s,{ converters:[converter1]});
+}
 
 var importStatus = {}
 
@@ -57,8 +67,8 @@ function Project(nozbeProject) {
 
   this.mergeIqtellProject = function(iqtellProject) {
     if (iqtellProject) {
-      this.setComment({type:"note",body:md(iqtellProject["Notes"])},IQTELL,"IQTell notes");
-      this.setComment({type:"note",body:md(iqtellProject["Brainstorming Notes"])},IQTELL,"IQTell brainstorming notes");
+      this.setComment({type:"note",body:toMarkdown(iqtellProject["Notes"])},IQTELL,"IQTell notes");
+      this.setComment({type:"note",body:toMarkdown(iqtellProject["Brainstorming Notes"])},IQTELL,"IQTell brainstorming notes");
     }
   }
 
@@ -168,7 +178,7 @@ function Task(nozbeTask) {
       this.setField("completed",iqtellTask["Status"]!="Open",IQTELL);
       this.setField("datetime",iqtellTask["Due Date"],IQTELL);
       this.setField("recur",0,IQTELL);
-      this.setComment({body:md(iqtellTask["Notes"])},IQTELL,"IQTell notes:");
+      this.setComment({body:toMarkdown(iqtellTask["Notes"])},IQTELL,"IQTell notes:");
     }
   }
 
@@ -644,9 +654,6 @@ function readNozbeNotes(accessToken) {
 }
 
 function updateNozbe(accessToken,data) {
-  console.log("updateNozbe .....");
-  console.log(data);
-
   return requestPromise({
     method: 'POST',
     uri:"https://webapp.nozbe.com/sync3/process/app_key-iqtell_import",
@@ -769,8 +776,6 @@ function readActions(file,progress) {
         value['Date Created'] = parseDate(value['Date Created']);
         value['Date Updated'] = parseDate(value['Date Updated']);
         value['Short Description'] = value['Short Description'].replace(/[#!]/ig,"")
-
-        //value['Notes'] = md(value['Notes'],{inline:true});
       }))
       .on('error',function(error) {
         stream.emit('error',error);
@@ -822,8 +827,6 @@ function readProjects(file,progress) {
 
         progress.numRead++;
 
-        value['Notes'] = md(value['Notes'],{inline:true});
-        value['Brainstorm'] = md(value['Brainstorm'],{inline:true});
         value['Short Description'] = value['Short Description'].replace(/[#!]/ig,"")
 
         value.tasks = []
