@@ -24,8 +24,37 @@
 
 </head>
 
-<body class="container">
-  <form action="/login" method="post" enctype="application/x-www-form-urlencoded">
+<body class="container" style="margin-top:30px">
+
+  <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+    <input type="hidden" name="cmd" value="_s-xclick">
+    <input type="hidden" name="hosted_button_id" value="WFLTFK6DM2B2Y">
+    <div style="width=100%;text-align:right">
+      <table style="text-align:left;display:inline">
+        <tr>
+          <td colspan="2" style="font-size:1.1em">
+            You can use this tool for free, but you can reward my  <br/>
+            effort for making this tool by making a donation.
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <input type="image" style="width:150px" src="paypal.jpg" border="0" name="submit" alt="PayPal, de veilige en complete manier van online betalen.">
+            <img alt="" border="0" src="https://www.paypalobjects.com/nl_NL/i/scr/pixel.gif" width="1" height="1">
+          </td>
+          <td>
+            <input type="hidden" name="currency_code" value="USD">
+            <input type="hidden" name="on0" value="amount"><b>amount</b><br/>
+            <input type="radio" name="os0" value="Option 1"> $2,00 USD<br>
+            <input type="radio" name="os0" value="Option 2"> $5,00 USD<br>
+            <input type="radio" name="os0" value="Option 3" checked> $10,00 USD<br>
+            <input type="radio" name="os0" value="Option 4"> $20,00 USD<br>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </form>
+
 
     <h1>IQTell to Nozbe migration tool</h1>
 
@@ -36,12 +65,16 @@
     @Ran: Thanks for the ride. Wish you well.
     <br/><br/>
     Ben Mens</em></p>
-
     <br/>
     <br/>
-    <br/>
+    <br/><b>
     Using this tool you can import your IQTell data into Nozbe. Just export your IQTell activities and IQTell projects to
-    your disk and then upload the files using the form below.
+    your disk and then upload the files using the form below. You can use thit tool multiple times. It will merge the imported
+    data with the existing data from Nozbe.</b>
+    <br/>
+    <br/>
+
+    <form action="/login" method="post" enctype="application/x-www-form-urlencoded">
 
     <h1><img src="nozbe.jpeg" style="width:50px"></img> Nozbe login</h1>
     <div class="form-group">
