@@ -27,13 +27,29 @@ function toMarkdown(s) {
     }
   }
   var converter2 = {
-    filter: ["table","td","tbody","span","col","colgroup"],
+    filter: ["table","td","tbody","span","col","colgroup","html","head","title","meta","link","script","style","font","label",
+             ""],
     replacement: function(content,node) {
       return content;
     }
   }
-  return _toMarkdown(s,{ converters:[converter1,converter2]});
+  var converter3 = {
+    filter: function(node) {
+      return true;
+    },
+    replacement: function(content,node) {
+      return node.innerHTML;
+    }
+  }
+
+  var result = _toMarkdown(s).replace(/(<([^>]+)>)\s*\n+?/ig, ""); // tag only lines
+  result = result.replace(/(<([^>]+)>)/ig, ""); // inline tags
+
+  return result;
 }
+
+
+//console.log(toMarkdown("<!-- test --><p>fdfsdfsd</p><p>test 1 </p>"))
 
 var importStatus = {}
 
@@ -399,7 +415,11 @@ function GtdData() {
 
         t.comments.forEach(function(n) {
           if (n.source==IQTELL) {
-            comments.push(n.data);
+            comments.push({
+              body:n.data.body,
+              id:n.data.id,
+              type:n.data.type
+            });
           }
         })
 
@@ -411,6 +431,8 @@ function GtdData() {
         }
       });
     });
+
+    console.log(result);
 
     return result;
   }

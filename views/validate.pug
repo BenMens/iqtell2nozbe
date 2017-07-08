@@ -37,6 +37,16 @@ html
 
   body(class="container")
 
+    div(class="row")
+      div(class="col-sm-12" style="padding-top:50px")
+        h2 Import complete
+        p Your IQTell data has been imported into Nozbe.
+        p <b>Warning: task recurrence is not imported. You should manually set the recurrence pattern on the imported tasks.</b>
+
+    div(class="row")
+      div(class="col-sm-12" style="padding-top:50px")
+        h2 Import report:
+
     - for (var j=0;j<gtdData.projects.length;j++)
       - var project = gtdData.projects[j]
       div(class="row")
@@ -52,9 +62,10 @@ html
               - var comment = project.comments[k]
               div(class="panel " + (comment.source==1 ? "panel-success" : "panel-primary"))
                 div(class="panel-heading")
-                  | Note: #{marked(comment.data.name)}
+                  | Note: #{comment.data.name}
                 div(class="panel-body")
-                  != marked(comment.data.body)
+                  //!= marked(comment.data.body)
+                  pre #{comment.data.body}
             - for (var i=0;i<project.tasks.length;i++)
                 - var task = project.tasks[i]
                 div(class="row")
@@ -72,4 +83,5 @@ html
                           div(class="panel-heading")
                             | Note:
                           div(class="panel-body")
-                            != marked(comment.data.body)
+                            //!= marked(comment.data.body)
+                            pre #{comment.data.body}
