@@ -617,6 +617,8 @@ app
     else {
       res.render('evaluate_progress', importStatus[req.session.id]);
     }
+
+    delete importStatus[req.session.id]
   })
 
 
