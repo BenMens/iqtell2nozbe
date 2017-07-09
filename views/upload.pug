@@ -1,0 +1,38 @@
+extends template.pug
+
+block title
+  title Upload IQTell data
+
+block wizard
+  include wizard.pug
+
+block content
+
+  form(
+    action="/upload"
+    method="post"
+    enctype="multipart/form-data")
+
+    h1
+      img(
+        src="iqtell.png"
+        style="width:50px")
+      | Upload IQTell exported data (*.CSV)
+
+    p.
+      Note: Although I spend a lot of time testing this tool on my own IQTell data. I cannot guarantee that it works for
+      your data. I advice you start importing a small number of activities and project and evaluate the results before you
+      import your whole dataset.
+
+    p.
+      This tool comes without any warrantee. You use this tool at your own risk.
+
+    div(class="form-group")
+      label(for="actions") Actions export
+      input(type="file" class="form-control" id="actions" name="actions")
+
+    div(class="form-group")
+      label(for="projects") Projects export
+      input(type="file" class="form-control" id="projects" name="projects")
+
+    input(class="btn btn-default" type="submit" value="Upload")

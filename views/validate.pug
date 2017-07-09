@@ -1,85 +1,70 @@
-html
-  head
-    title= Validate
-    meta(charset="utf-8")
-    meta(
-      http-equiv="X-UA-Compatible"
-      content="IE=edge")
+extends template.pug
 
-    meta(
-      name="viewport"
-      content="width=device-width, initial-scale=1")
+block title
+  title Report
 
-    link(
-      rel="stylesheet"
-      href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
-      integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
-      crossorigin="anonymous")
+block meta
+  meta(
+    name="viewport"
+    content="width=device-width, initial-scale=1")
 
-    link(
-      rel="stylesheet"
-      href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css"
-      integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp"
-      crossorigin="anonymous")
+block wizard
+  include wizard.pug
 
-    script(
-      src="https://code.jquery.com/jquery-3.2.1.min.js"
-      integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
-      crossorigin="anonymous")
+block content
 
+  div(class="row")
+    div(class="col-sm-12")
+      h1 Import complete
+      p Your IQTell data has been imported into Nozbe.
+      p <b>Warning: Activity recurrence is not imported. You should manually set the recurrence pattern on the imported tasks.</b>
+      p.
+        Completed activities are imported in the project named "Closed IQTell activities without project".
+        Completed projects will have the open status in Nozbe. You should close them manually.
 
-    script(
-      src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
-      integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
-      crossorigin="anonymous")
+  div(class="row")
+    div(class="col-sm-12")
+      h2 Report:
 
+      p The report below shows all changes to Nozbe projects and activities.
 
-
-  body(class="container")
-
+  - for (var j=0;j<gtdData.projects.length;j++)
+    - var project = gtdData.projects[j]
     div(class="row")
-      div(class="col-sm-12" style="padding-top:50px")
-        h2 Import complete
-        p Your IQTell data has been imported into Nozbe.
-        p <b>Warning: task recurrence is not imported. You should manually set the recurrence pattern on the imported tasks.</b>
-
-    div(class="row")
-      div(class="col-sm-12" style="padding-top:50px")
-        h2 Import report:
-
-    - for (var j=0;j<gtdData.projects.length;j++)
-      - var project = gtdData.projects[j]
-      div(class="row")
-        div(class="col-sm-12")
-        div(class="panel " + (project.fields.is_new!=undefined ? "panel-success" : "panel-primary"))
-          div(class="panel-heading")
-            | Project: #{project.fields.name.value}
-          div(class="panel-body")
-            - for (var key in project.fields)
-              - var field = project.fields[key]
-              p(class=(field.source==1 ? "text-success" : "text-primary")) #{key} : #{field.value}
-            - for (var k=0;k<project.comments.length;k++)
-              - var comment = project.comments[k]
-              div(class="panel " + (comment.source==1 ? "panel-success" : "panel-primary"))
+      div(class="col-sm-12")
+      div(class="panel " + (project.fields.is_new==undefined ? "panel-success" : "panel-primary"))
+        div(class="panel-heading")
+          | Project: #{project.fields.name.value}
+        div(class="panel-body")
+          - for (var key in project.fields)
+            - var field = project.fields[key]
+            if field.source==2
+              p(class="text-primary") #{key} : #{field.value}
+          - for (var k=0;k<project.comments.length;k++)
+            - var comment = project.comments[k]
+            if field.source==2
+              div(class="panel panel-primary")
                 div(class="panel-heading")
                   | Note: #{comment.data.name}
                 div(class="panel-body")
                   //!= marked(comment.data.body)
                   pre #{comment.data.body}
-            - for (var i=0;i<project.tasks.length;i++)
-                - var task = project.tasks[i]
-                div(class="row")
-                  div(class="col-sm-12")
-                    div(class="panel " + (task.fields.id!=undefined ? "panel-success" : "panel-primary"))
-                      div(class="panel-heading")
-                        | Activity: #{task.fields.name.value}
-                      div(class="panel-body")
-                      - for (var key in task.fields)
-                        - var field = task.fields[key]
-                        p(class=(field.source==1 ? "text-success" : "text-primary")) #{key} : #{JSON.stringify(field.value)}
-                      - for (var k=0;k<task.comments.length;k++)
-                        - var comment = task.comments[k]
-                        div(class="panel " + (comment.source==1 ? "panel-success" : "panel-primary"))
+          - for (var i=0;i<project.tasks.length;i++)
+              - var task = project.tasks[i]
+              div(class="row")
+                div(class="col-sm-12")
+                  div(class="panel " + (task.fields.is_new==undefined ? "panel-success" : "panel-primary"))
+                    div(class="panel-heading")
+                      | Activity: #{task.fields.name.value}
+                    div(class="panel-body")
+                    - for (var key in task.fields)
+                      - var field = task.fields[key]
+                      if field.source==2
+                        p(class="text-primary") #{key} : #{JSON.stringify(field.value)}
+                    - for (var k=0;k<task.comments.length;k++)
+                      - var comment = task.comments[k]
+                      if field.source==2
+                        div(class="panel panel-primary")
                           div(class="panel-heading")
                             | Note:
                           div(class="panel-body")

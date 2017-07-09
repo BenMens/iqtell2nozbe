@@ -20,27 +20,6 @@ var http = require('express'),
     _toMarkdown = require('to-markdown');
 
 function toMarkdown(s) {
-  var converter1 = {
-    filter: ["tr","div"],
-    replacement: function(content,node) {
-      return content + "\n";
-    }
-  }
-  var converter2 = {
-    filter: ["table","td","tbody","span","col","colgroup","html","head","title","meta","link","script","style","font","label",
-             ""],
-    replacement: function(content,node) {
-      return content;
-    }
-  }
-  var converter3 = {
-    filter: function(node) {
-      return true;
-    },
-    replacement: function(content,node) {
-      return node.innerHTML;
-    }
-  }
 
   var result = _toMarkdown(s).replace(/(<([^>]+)>)\s*\n+?/ig, ""); // tag only lines
   result = result.replace(/(<([^>]+)>)/ig, ""); // inline tags
@@ -48,12 +27,49 @@ function toMarkdown(s) {
   return result;
 }
 
-
-//console.log(toMarkdown("<!-- test --><p>fdfsdfsd</p><p>test 1 </p>"))
+var sessionStore = new FileStore({});
 
 var importStatus = {}
+var tmpFileRegistry = [];
 
-var sessionStore = new FileStore({});
+function registerTmpFile(path) {
+  if (path) {
+    tmpFileRegistry.push({
+      path:path,
+      timestamp:new Date
+    });
+  }
+}
+
+function cleanImportStatus() {
+
+  // Remove tmp files
+  tmpFileRegistry = tmpFileRegistry.filter(function(tmpFile) {
+    var now = new Date();
+
+    if ((now.getTime() - tmpFile.timestamp.getTime()) < 15*60*1000) {
+      return true;
+    }
+
+    if (fs.existsSync(tmpFile.path)) {
+      fs.unlink(tmpFile.path,function(){});
+      return true;
+    }
+
+    return false;
+  })
+
+  for (key in importStatus) {
+    var status = importStatus[key];
+    var now = new Date();
+
+    if ((now.getTime() - status.createDate.getTime()) > 3600000) {
+      delete status.gtdData;
+    }
+  }
+}
+
+setInterval(cleanImportStatus, 1000);
 
 var NOZBE = 1;
 var IQTELL = 2;
@@ -80,7 +96,8 @@ function Project(nozbeProject) {
   this.comments = [];
 
   this.setField = function(name,value,source) {
-    if (!this.fields[name] || (this.fields[name].value != value)) {
+//    if (!this.fields[name] || (this.fields[name].value != value)) {
+    if (!this.fields[name]) {
       var field = this.fields[name] = (this.fields[name] || {})
       field.value = value;
       field.source = source;
@@ -121,10 +138,10 @@ function Project(nozbeProject) {
       }
       this.comments.push(newComment);
     }
-    else if (signature) {
-      foundComment.source = source;
-      foundComment.data.name = signature;
-    }
+    // else if (signature) {
+    //   foundComment.source = source;
+    //   foundComment.data.name = signature;
+    // }
   }
 
 
@@ -137,16 +154,12 @@ function Project(nozbeProject) {
 
 function Task(nozbeTask) {
 
-  this.fields = {
-    con_list: {
-      value:[],
-      source:NOZBE
-    }
-  };
+  this.fields = {};
   this.comments = [];
 
   this.setField = function(name,value,source) {
-    if (!this.fields[name] || (this.fields[name].value != value)) {
+//    if (!this.fields[name] || (this.fields[name].value != value)) {
+    if (!this.fields[name]) {
       var field = this.fields[name] = (this.fields[name] || {})
       field.value = value;
       field.source = source;
@@ -180,13 +193,19 @@ function Task(nozbeTask) {
       }
       this.comments.push(newComment);
     }
-    else if (signature) {
-      foundComment.source = source;
-      foundComment.data.body = signature + "\n\n" + comment.body;
-    }
+    // else if (signature) {
+    //   foundComment.source = source;
+    //   foundComment.data.body = signature + "\n\n" + comment.body;
+    // }
   }
 
   this.setIqtellContext = function(contextId) {
+    if (!this.fields.con_list) {
+      this.fields.con_list = {
+        value: [],
+        source: NOZBE
+      }
+    }
     if (!this.fields.con_list.value.find(function(c) {return c==contextId})) {
       this.fields.con_list.value.push(contextId);
       this.fields.con_list.source = IQTELL;
@@ -457,7 +476,13 @@ app
   //############################################################################
   .get("/",function (req,res,next) {
     res.writeHead(302, {
-      'Location': 'app/login'
+      'Location': 'login'
+    })
+    res.end();
+  })
+  .get("/app/login",function (req,res,next) {
+    res.writeHead(302, {
+      'Location': 'login'
     })
     res.end();
   })
@@ -468,6 +493,8 @@ app
 
     var email = req.body.email;
     var password = req.body.password;
+
+    req.session.email = email;
 
     return requestPromise("https://webapp.nozbe.com/sync3/login/app_key-iqtell_import",{
         method: "POST",
@@ -482,7 +509,7 @@ app
           req.session.accessToken = data.key;
 
           res.writeHead(302, {
-            'Location': 'app/upload'
+            'Location': '/upload'
           })
           res.end();
         }
@@ -510,16 +537,35 @@ app
     var sessId = req.session.id;
 
     importStatus[sessId] = {
+      createDate: new Date(),
+      done:false,
       iqtellProgress : {
-        done:false,
+        actionsFile:req.files['actions']  ? req.files['actions'][0].path : undefined,
+        projectsFile:req.files['projects'] ? req.files['projects'][0].path : undefined,
         importActions : {},
         importProjects : {}
       }
     }
 
+    registerTmpFile(importStatus[sessId].iqtellProgress.actionsFile);
+    registerTmpFile(importStatus[sessId].iqtellProgress.projectsFile);
+
+    res.writeHead(302, {
+      'Location': '/import'
+    })
+    res.end();
+
+  })
+  .post("/import",iqtellUpload,function (req,res,next) {
+
+    var sessId = req.session.id;
+    var stat = importStatus[sessId];
+
+    stat.done=false;
+
     Promise.all(
-        [readActions(req.files['actions'][0].path,importStatus[sessId].iqtellProgress.importActions),
-        readProjects(req.files['projects'][0].path,importStatus[sessId].iqtellProgress.importProjects),
+        [readActions(stat.iqtellProgress.actionsFile,stat.iqtellProgress.importActions),
+        readProjects(stat.iqtellProgress.projectsFile,stat.iqtellProgress.importProjects),
         readNozbeTasks(req.session.accessToken),
         readNozbeProjects(req.session.accessToken),
         readNozbeContexts(req.session.accessToken),
@@ -532,6 +578,14 @@ app
         var nozbeProjects  = res[3];
         var nozbeContexts  = res[4];
         var nozbeNotes     = res[5];
+
+        if (iqtellTasks.length>0 && (!iqtellTasks[0].hasOwnProperty("Short Description") || !iqtellTasks[0].hasOwnProperty("Context"))) {
+          throw("invalid IQTell task file");
+        }
+
+        if (iqtellProjects.length>0 && (!iqtellProjects[0].hasOwnProperty("Short Description") || !iqtellProjects[0].hasOwnProperty("Brainstorming Notes"))) {
+          throw("invalid IQTell project file");
+        }
 
         var gtdData = new GtdData();
 
@@ -563,27 +617,32 @@ app
 
         updateNozbe(req.session.accessToken,{
           context:gtdData.getContextUpdates()
-        });
-
-        updateNozbe(req.session.accessToken,{
-          project:gtdData.getProjectUpdates()
-        });
-
-        updateNozbe(req.session.accessToken,{
-          task:gtdData.getTaskUpdates()
-        });
-
-        updateNozbe(req.session.accessToken,{
-          note:gtdData.getProjectCommentUpdates()
+        })
+        .then(function() {
+          return updateNozbe(req.session.accessToken,{
+            project:gtdData.getProjectUpdates()
+          });
+        })
+        .then(function() {
+          return updateNozbe(req.session.accessToken,{
+            task:gtdData.getTaskUpdates()
+          });
+        })
+        .then(function() {
+          return updateNozbe(req.session.accessToken,{
+            note:gtdData.getProjectCommentUpdates()
+          });
         });
 
         importStatus[sessId].gtdData = gtdData;
-        importStatus[sessId].iqtellProgress.done = true;
+        importStatus[sessId].done = true;
+
+        fs.appendFile('./activity.log', `${(new Date()).toLocaleString()} Imported data for: ${req.session.email}\n`, function (err) {});
       })
       .catch(function(error) {
 
-        importStatus[sessId].iqtellProgress.error = error;
-        importStatus[sessId].iqtellProgress.errorStr = error.toString();
+        importStatus[sessId].error = error;
+        importStatus[sessId].errorStr = error.toString();
 
         try {
           importStatus[sessId].iqtellProgress.importActions.abort();
@@ -596,7 +655,7 @@ app
       })
 
       res.writeHead(302, {
-        'Location': 'app/validate'
+        'Location': '/validate'
       })
       res.end();
 
@@ -604,16 +663,25 @@ app
   //############################################################################
   //# /app/* (get)
   //############################################################################
-  .use('/app',express.static('app',{extensions:['html']}))
+  .use('/',express.static('app',{extensions:['html']}))
   .set('view engine', 'pug')
   .set('views', './views')
-  .get('/app/validate', function (req, res) {
-    if (importStatus[req.session.id].iqtellProgress.error) {
+  .get('/login', function (req, res) {
+      res.render('login',{step:0});
+  })
+  .get('/upload', function (req, res) {
+      res.render('upload',{step:1});
+  })
+  .get('/import', function (req, res) {
+      res.render('import',{step:2});
+  })
+  .get('/validate', function (req, res) {
+    importStatus[req.session.id].step = 3;
+    if (importStatus[req.session.id].error) {
       res.render('error_report', importStatus[req.session.id]);
     }
-    else if (importStatus[req.session.id].iqtellProgress.done) {
+    else if (importStatus[req.session.id].done) {
       res.render('validate', importStatus[req.session.id]);
-      delete importStatus[req.session.id]
     }
     else {
       res.render('evaluate_progress', importStatus[req.session.id]);
@@ -751,6 +819,7 @@ function parseDate(dateString) {
 }
 
 function readActions(file,progress) {
+  if (!file) return Promise.resolve([]);
 
   var finished = false;
   var stream = fs.createReadStream(file);
@@ -798,7 +867,12 @@ function readActions(file,progress) {
           value.project = links['Project'][0];
         }
         catch(e) {
-          value.project = 'Inbox';
+          if (value['Status']=="Open") {
+            value.project = 'Inbox';
+          }
+          else {
+            value.project = 'Closed IQTell activities without project';
+          }
         }
 
         value['Due Date']     = parseDate(value['Due Date']);
@@ -813,9 +887,6 @@ function readActions(file,progress) {
         if (finished) return;
         finished = true;
 
-        progress.done = true;
-        fs.unlink(file,function(){});
-
         resolve(result);
       })
 
@@ -824,15 +895,14 @@ function readActions(file,progress) {
         if (finished) return;
         finished = true;
 
-        progress.error = error;
-        fs.unlink(file,function(error) {});
-
         reject(error);
       });
   })
 }
 
 function readProjects(file,progress) {
+  if (!file) return Promise.resolve([]);
+
   var finished = false;
   var stream = fs.createReadStream(file);
 
@@ -867,9 +937,6 @@ function readProjects(file,progress) {
         if (finished) return;
         finished = true;
 
-        progress.done = true;
-        fs.unlink(file,function(){});
-
         resolve(result);
       })
 
@@ -877,9 +944,6 @@ function readProjects(file,progress) {
       .on('error',function(error) {
         if (finished) return;
         finished = true;
-
-        progress.error = error;
-        fs.unlink(file,function(){});
 
         reject(error);
       });

@@ -1,0 +1,27 @@
+extends template.pug
+
+block title
+  title Start import
+
+block wizard
+  include wizard.pug
+
+block content
+
+  form(
+    action="/import"
+    method="post"
+    enctype="multipart/form-data")
+
+    h1
+      | Ready to start import
+
+    p.
+      Note: Although I spend a lot of time testing this tool on my own IQTell data. I cannot guarantee that it works for
+      your data. I advice you start importing a small number of activities and project and evaluate the results before you
+      import your whole dataset.
+
+    p.
+      This tool comes without any warrantee. You use this tool at your own risk.
+
+    input(class="btn btn-default" type="submit" value="Start import")

@@ -1,0 +1,36 @@
+block links
+  link(href="/smartwizard/css/smart_wizard.css" rel="stylesheet" type="text/css")
+  link(href="/smartwizard/css/smart_wizard_theme_arrows.css" rel="stylesheet" type="text/css")
+
+block scripts
+  script(type="text/javascript" src="/smartwizard/js/jquery.smartWizard.min.js")
+
+  script.
+    $(document).ready(function(){
+      $('#smartwizard').smartWizard({
+        theme: "arrows",
+        selected: #{step},
+        anchorSettings: {
+          anchorClickable: false
+        }
+      });
+    });
+
+div(id="smartwizard")
+  ul
+    li
+      a(href="login") Login
+        br
+        small Login to Nozbe
+    li
+      a(href="upload") Upload
+        br
+        small Upload exported data from IQTell
+    li
+      a(href="import") Import
+        br
+        small Import IQTell data into Nozbe
+    li
+      a(href="report") Report
+        br
+        small Examine the results

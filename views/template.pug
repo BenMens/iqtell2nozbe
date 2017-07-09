@@ -1,0 +1,122 @@
+html
+  head
+    block title
+
+    meta(charset="utf-8")
+    meta(
+      http-equiv="X-UA-Compatible"
+      content="IE=edge")
+
+    meta(
+      name="viewport"
+      content="width=device-width, initial-scale=1")
+
+    block meta
+
+    link(
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+      integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
+      crossorigin="anonymous")
+
+    link(
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css"
+      integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp"
+      crossorigin="anonymous")
+
+
+    block links
+
+    script(
+      src="https://code.jquery.com/jquery-3.2.1.min.js"
+      integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+      crossorigin="anonymous")
+
+
+    script(
+      src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
+      integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+      crossorigin="anonymous")
+
+    block scripts
+
+
+  body(
+      class="container"
+      style="margin-bottom:50px")
+
+    nav(class="navbar navbar-default navbar-fixed-top navbar-inverse")
+      div(class="container-fluid")
+        div(class="navbar-header")
+          p(class="navbar-brand" style="font-size:2em") IQTell to Nozbe migration tool
+
+
+    div(style="margin-top:80px")
+
+    div(class="row")
+      div(class="col-xs-12 col-sm-6 col-md-8")
+          p
+            b Developers note:
+          p
+            em.
+              I loved using IQTell but now it will shutdown, it is time to move on. For me Nozbe is very good alternative.
+              It has a great user interface and great apps. I created this tool for fellow IQTell users who want to migrate to Nozbe.
+            br
+            p
+              em Ben Mens
+            br
+
+          p @Ran: Thanks for the ride. I wish you well.
+
+      div(class="col-xs-12 col-sm-6 col-md-4")
+        form(
+          action="https://www.paypal.com/cgi-bin/webscr"
+          method="post"
+          target="_top")
+
+          input(type="hidden" name="cmd" value="_s-xclick")
+          input(type="hidden" name="hosted_button_id" value="WFLTFK6DM2B2Y")
+
+          div(class="row")
+            div(class="col-xs-12")
+                span(style="font-size:1.1em").
+                  You can use this tool for free, but you can reward my
+                  effort for making this tool by making a donation.
+          div(class="row" style="margin-top:10px")
+            div(class="col-xs-6")
+              input(type="hidden" name="currency_code" value="USD")
+              input(type="hidden" name="on0" value="amount")
+              br
+              input(type="radio" name="os0" value="Option 1")
+              | &nbsp; $2,00 USD
+              br
+              input(type="radio" name="os0" value="Option 2" checked)
+              | &nbsp; $5,00 USD
+              br
+              input(type="radio" name="os0" value="Option 3")
+              | &nbsp; $10,00 USD
+              br
+              input(type="radio" name="os0" value="Option 4")
+              | &nbsp; $20,00 USD
+            div(class="col-xs-6" style="text-align:center")
+              input(
+                type="image"
+                style="width:150;margin-top:30px"
+                src="paypal.png"
+                border="0" name="submit"
+                alt="PayPal, de veilige en complete manier van online betalen.")
+              img(alt="" border="0" src="https://www.paypalobjects.com/nl_NL/i/scr/pixel.gif" width="1" height="1")
+
+
+    div(class="row" style="margin-top:30px")
+      div(class="col-xs-12")
+        p
+          b.
+            Using this tool you can import your IQTell data into Nozbe. Just export your IQTell activities and IQTell projects to
+            your disk and then upload the files using the wizard below. You can use this tool multiple times. It will merge the imported
+            data with the existing data from Nozbe.
+        br
+
+  block wizard
+  block content
