@@ -451,8 +451,6 @@ function GtdData() {
       });
     });
 
-    console.log(result);
-
     return result;
   }
 
@@ -563,101 +561,99 @@ app
 
     stat.done=false;
 
-    Promise.all(
-        [readActions(stat.iqtellProgress.actionsFile,stat.iqtellProgress.importActions),
-        readProjects(stat.iqtellProgress.projectsFile,stat.iqtellProgress.importProjects),
-        readNozbeTasks(req.session.accessToken),
-        readNozbeProjects(req.session.accessToken),
-        readNozbeContexts(req.session.accessToken),
-        readNozbeNotes(req.session.accessToken)])
-      .then(function(res) {
+    setTimeout(function() {
+      Promise.all(
+          [readActions(stat.iqtellProgress.actionsFile,stat.iqtellProgress.importActions),
+          readProjects(stat.iqtellProgress.projectsFile,stat.iqtellProgress.importProjects),
+          readNozbeTasks(req.session.accessToken),
+          readNozbeProjects(req.session.accessToken),
+          readNozbeContexts(req.session.accessToken),
+          readNozbeNotes(req.session.accessToken)])
+        .then(function(res) {
 
-        var iqtellTasks    = res[0];
-        var iqtellProjects = res[1];
-        var nozbeTasks     = res[2];
-        var nozbeProjects  = res[3];
-        var nozbeContexts  = res[4];
-        var nozbeNotes     = res[5];
+          var iqtellTasks    = res[0];
+          var iqtellProjects = res[1];
+          var nozbeTasks     = res[2];
+          var nozbeProjects  = res[3];
+          var nozbeContexts  = res[4];
+          var nozbeNotes     = res[5];
 
-        if (iqtellTasks.length>0 && (!iqtellTasks[0].hasOwnProperty("Short Description") || !iqtellTasks[0].hasOwnProperty("Context"))) {
-          throw("invalid IQTell task file");
-        }
+          if (iqtellTasks.length>0 && (!iqtellTasks[0].hasOwnProperty("Short Description") || !iqtellTasks[0].hasOwnProperty("Context"))) {
+            throw("invalid IQTell task file");
+          }
 
-        if (iqtellProjects.length>0 && (!iqtellProjects[0].hasOwnProperty("Short Description") || !iqtellProjects[0].hasOwnProperty("Brainstorming Notes"))) {
-          throw("invalid IQTell project file");
-        }
+          if (iqtellProjects.length>0 && (!iqtellProjects[0].hasOwnProperty("Short Description") || !iqtellProjects[0].hasOwnProperty("Brainstorming Notes"))) {
+            throw("invalid IQTell project file");
+          }
 
-        var gtdData = new GtdData();
+          var gtdData = new GtdData();
 
-        console.log("Step 1: Process nozbe contexts")
-        nozbeContexts.forEach(function(nozbeContext) {
-          gtdData.processNozbeContext(nozbeContext);
-        });
-
-        console.log("Step 2: Process nozbe projects")
-        nozbeProjects.forEach(function(nozbeProject) {
-          gtdData.processNozbeProject(nozbeProject,nozbeTasks);
-        });
-
-        console.log("Step 3: Process project notes")
-        nozbeNotes.forEach(function(nozbeNote) {
-          gtdData.processNozbeNote(nozbeNote);
-        });
-
-        console.log("Step 4: Process IQTell projects")
-        iqtellProjects.forEach(function(iqtellProject) {
-          gtdData.processIqTellProject(iqtellProject);
-        });
-
-        console.log("Step 5: Process IQTell tasks")
-        iqtellTasks.forEach(function(iqtellTask) {
-          gtdData.processIqTellTask(iqtellTask);
-        });
-
-
-        updateNozbe(req.session.accessToken,{
-          context:gtdData.getContextUpdates()
-        })
-        .then(function() {
-          return updateNozbe(req.session.accessToken,{
-            project:gtdData.getProjectUpdates()
+          nozbeContexts.forEach(function(nozbeContext) {
+            gtdData.processNozbeContext(nozbeContext);
           });
-        })
-        .then(function() {
-          return updateNozbe(req.session.accessToken,{
-            task:gtdData.getTaskUpdates()
+
+          nozbeProjects.forEach(function(nozbeProject) {
+            gtdData.processNozbeProject(nozbeProject,nozbeTasks);
           });
-        })
-        .then(function() {
-          return updateNozbe(req.session.accessToken,{
-            note:gtdData.getProjectCommentUpdates()
+
+          nozbeNotes.forEach(function(nozbeNote) {
+            gtdData.processNozbeNote(nozbeNote);
           });
-        });
 
-        importStatus[sessId].gtdData = gtdData;
-        importStatus[sessId].done = true;
+          iqtellProjects.forEach(function(iqtellProject) {
+            gtdData.processIqTellProject(iqtellProject);
+          });
 
-        fs.appendFile('./activity.log', `${(new Date()).toLocaleString()} Imported data for: ${req.session.email}\n`, function (err) {});
-      })
-      .catch(function(error) {
+          iqtellTasks.forEach(function(iqtellTask) {
+            gtdData.processIqTellTask(iqtellTask);
+          });
 
-        importStatus[sessId].error = error;
-        importStatus[sessId].errorStr = error.toString();
 
-        try {
-          importStatus[sessId].iqtellProgress.importActions.abort();
-        } catch (e){}
+          updateNozbe(req.session.accessToken,{
+            context:gtdData.getContextUpdates()
+          })
+          .then(function() {
+            return updateNozbe(req.session.accessToken,{
+              project:gtdData.getProjectUpdates()
+            });
+          })
+          .then(function() {
+            return updateNozbe(req.session.accessToken,{
+              task:gtdData.getTaskUpdates()
+            });
+          })
+          .then(function() {
+            return updateNozbe(req.session.accessToken,{
+              note:gtdData.getProjectCommentUpdates()
+            });
+          });
 
-        try {
-          importStatus[sessId].iqtellProgressimportProjects.abort();
-        } catch (e){}
+          importStatus[sessId].gtdData = gtdData;
+          importStatus[sessId].done = true;
 
-      })
+          fs.appendFile('./activity.log', `${(new Date()).toLocaleString()} Imported data for: ${req.session.email}\n`, function (err) {});
+        })
+        .catch(function(error) {
 
-      res.writeHead(302, {
-        'Location': '/validate'
-      })
-      res.end();
+          importStatus[sessId].error = error;
+          importStatus[sessId].errorStr = error.toString();
+
+          try {
+            importStatus[sessId].iqtellProgress.importActions.abort();
+          } catch (e){}
+
+          try {
+            importStatus[sessId].iqtellProgressimportProjects.abort();
+          } catch (e){}
+
+        })
+    },2000)
+
+
+    res.writeHead(302, {
+      'Location': '/validate'
+    })
+    res.end();
 
   })
   //############################################################################
@@ -762,7 +758,6 @@ function updateNozbe(accessToken,data) {
     json:true
   })
   .then(function (data) {
-    // console.log(data)
     return data
   })
   .catch(function(e) {
